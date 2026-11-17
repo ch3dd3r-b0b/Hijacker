@@ -598,6 +598,12 @@ public class MainActivity extends AppCompatActivity{
                     }
                 }
 
+
+                // Install NetHunter qcacld monitor-mode scripts independently
+                // of the legacy bundled-tools version check.
+                extract("qcacld-monitor.sh", tools_location, true);
+                extract("qcacld-monitor-stop.sh", tools_location, true);
+
                 //Detect device chipset
                 publishProgress(getString(R.string.detecting_device_chipset));
                 Shell shell = getFreeShell();
@@ -624,14 +630,17 @@ public class MainActivity extends AppCompatActivity{
                     //BCM4358
                     prefix += "libnexmon.so";
                 }else{
-                    //Default (detected but not included)
-                    SettingsFragment.allow_prefix = true;       //Allow user to change the prefix
-                    prefix = pref.getString("prefix", null);    //Use user-set prefix
+                    // Non-Nexmon chipset, including NetHunter qcacld devices.
+                    // Do not force Nexmon libraries onto Qualcomm interfaces.
+                    SettingsFragment.allow_prefix = true;
+                    prefix = ""; // No LD_PRELOAD for non-Nexmon chipsets
 
-                    if(prefix==null){
-                        //No user-set prefix, use default
-                        prefix = "LD_PRELOAD=" + path + "/lib/libfakeioctl.so";
+                    if(prefix == null){
+                        prefix = "";
                     }
+
+                    Log.i("HIJACKER/Setup",
+                            "Using wireless tools without Nexmon LD_PRELOAD");
                 }
 
                 airodump_dir = path + "/bin/airodump-ng";
@@ -901,7 +910,8 @@ public class MainActivity extends AppCompatActivity{
             if(report.exists()) report.delete();
 
             //Show FirstRunDialog
-            if(customDialog!=null){
+            if(customDialog!=null &&
+                    !new File("/sys/module/wlan/parameters/con_mode").exists()){
                 FirstRunDialog frDialog = new FirstRunDialog();
                 frDialog.show(getFragmentManager(), "FirstRunDialog");
                 frDialog._wait();
@@ -950,7 +960,9 @@ public class MainActivity extends AppCompatActivity{
                 mDrawerLayout.openDrawer(GravityCompat.START);
 
             //Start
+            Log.d("HIJACKER/QCACLD", "Enable command: " + enable_monMode);
             runOne(enable_monMode);
+            runOne("cat /sys/module/wlan/parameters/con_mode > " + path + "/qcacld-state.txt");
             stop(PROCESS_AIRODUMP);
             stop(PROCESS_AIREPLAY);
             stop(PROCESS_MDK_BF);
@@ -1195,6 +1207,12 @@ public class MainActivity extends AppCompatActivity{
         monstart = pref.getBoolean("monstart", monstart);
         enable_monMode = pref.getString("enable_monMode", enable_monMode);
         disable_monMode = pref.getString("disable_monMode", disable_monMode);
+        if(new File("/sys/module/wlan/parameters/con_mode").exists()){
+            enable_monMode = "/system/bin/sh /data/user/0/com.hijacker/files/bin/qcacld-monitor.sh";
+            disable_monMode = "/system/bin/sh /data/user/0/com.hijacker/files/bin/qcacld-monitor-stop.sh";
+            iface = "wlan0";
+        }
+
         enable_on_airodump = pref.getBoolean("enable_on_airodump", enable_on_airodump);
         show_notif = pref.getBoolean("show_notif", show_notif);
         show_details = pref.getBoolean("show_details", show_details);

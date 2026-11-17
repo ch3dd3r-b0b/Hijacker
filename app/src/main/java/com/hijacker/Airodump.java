@@ -140,7 +140,8 @@ class Airodump{
     }
     static void start(){
         // Construct the command
-        String cmd = "su -c " + prefix + " " + airodump_dir + " --update 9999999 --write-interval 1 --band ";
+        String cmd = (prefix == null || prefix.isEmpty() ? "" : prefix + " ")
+                + airodump_dir + " --update 9999999 --write-interval 1 --band ";
 
         if(band==BAND_5 || band==BAND_BOTH || channel>20) cmd += "a";
         if((band==BAND_2 || band==BAND_BOTH) && channel<=20) cmd += "bg";
@@ -170,12 +171,13 @@ class Airodump{
         stop();
 
         capFile = null;
-        running = true;
         capFileObserver.startWatching();
 
         if(debug) Log.d("HIJACKER/Airodump.start", cmd);
         try{
-            Runtime.getRuntime().exec(cmd);
+            // Pass the complete command as one argument to su -c.
+            Runtime.getRuntime().exec(new String[]{"su", "-c", cmd});
+            running = true;
             last_action = System.currentTimeMillis();
             last_airodump = cmd;
         }catch(IOException e){
@@ -197,29 +199,69 @@ class Airodump{
     }
     static void stop(){
         last_action = System.currentTimeMillis();
-        running = false;
-        capFileObserver.stopWatching();
-        runInHandler(new Runnable(){
-            @Override
-            public void run(){
-                if(menu!=null){
-                    menu.getItem(1).setIcon(R.drawable.start_drawable);
-                    menu.getItem(1).setTitle(R.string.start);
-                }
-            }
-        });
+
         stopWPA();
-        runOne(busybox + " kill $(" + busybox + " pidof airodump-ng)");
-        AP.saveAll();
-        ST.saveAll();
+
+        // Stop Airodump using the exact BusyBox binary installed by Hijacker.
+        // Verify termination and escalate only if SIGTERM did not work.
+        try{
+            String command =
+                    "PIDS=$(" + busybox + " pidof airodump-ng 2>/dev/null); " +
+                    "if [ -n \"$PIDS\" ]; then " +
+                    busybox + " kill -TERM $PIDS 2>/dev/null; " +
+                    "sleep 1; " +
+                    "PIDS=$(" + busybox + " pidof airodump-ng 2>/dev/null); " +
+                    "if [ -n \"$PIDS\" ]; then " +
+                    busybox + " kill -KILL $PIDS 2>/dev/null; " +
+                    "fi; fi; " +
+                    busybox + " pidof airodump-ng 2>/dev/null";
+
+            Process process = Runtime.getRuntime().exec(
+                    new String[]{"su", "-c", command});
+
+            BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream()));
+
+            StringBuilder output = new StringBuilder();
+            String line;
+            while((line = reader.readLine()) != null){
+                output.append(line).append(" ");
+            }
+
+            int exitCode = process.waitFor();
+            String remaining = output.toString().trim();
+
+            running = !remaining.isEmpty();
+
+            Log.i(TAG, "Stop command exit=" + exitCode
+                    + ", remaining Airodump PIDs=" + remaining
+                    + ", running=" + running);
+
+        }catch(Exception e){
+            running = true;
+            Log.e(TAG, "Failed to stop Airodump", e);
+        }
+
+        if(!running && capFileObserver != null){
+            capFileObserver.stopWatching();
+        }
 
         runInHandler(new Runnable(){
             @Override
             public void run(){
+                if(menu!=null){
+                    menu.getItem(1).setIcon(
+                            running ? R.drawable.stop_drawable : R.drawable.start_drawable);
+                    menu.getItem(1).setTitle(
+                            running ? R.string.stop : R.string.start);
+                }
                 refreshState();
                 notification();
             }
         });
+
+        AP.saveAll();
+        ST.saveAll();
     }
     static boolean isRunning(){
         return running;

@@ -319,7 +319,7 @@
 
     <!-- Default Preferences -->
     <string name="iface" translatable="false">wlan0</string>
-    <string name="prefix" translatable="false">LD_PRELOAD=/vendor/lib/libfakeioctl.so</string>
+    <string name="prefix" translatable="false"></string>
     <string name="chroot_dir" translatable="false">/data/local/nhsystem/kali-armhf</string>
     <string name="monstart" translatable="false">false</string>
     <string name="enable_monMode" translatable="false">nexutil -m true</string>

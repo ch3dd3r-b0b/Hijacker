@@ -28,7 +28,7 @@
             android:summary="@string/debug_sum"
             android:title="@string/debug_title" />
         <EditTextPreference
-            android:defaultValue="@string/prefix"
+            android:defaultValue=""
             android:selectAllOnFocus="true"
             android:singleLine="true"
             android:title="@string/prefix_title"

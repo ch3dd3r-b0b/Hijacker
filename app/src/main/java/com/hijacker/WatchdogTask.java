@@ -42,6 +42,7 @@ import static com.hijacker.MainActivity.stop;
 class WatchdogTask extends AsyncTask<Void, String, Boolean>{
     static final int SLEEP_TIME = 5000, PAUSE_TIME = 1000;
     Context con;
+    private final java.util.Set<Integer> warnedProcesses = new java.util.HashSet<>();
     WatchdogTask(Context context){
         this.con = context;
     }
@@ -58,15 +59,23 @@ class WatchdogTask extends AsyncTask<Void, String, Boolean>{
         List<Integer> list = getPIDs(process);
         if(running && list.size()==0){
             //process not running
+            warnedProcesses.remove(process);
             publishProgress(notRunning);
             stop(process);
         }else if(!running && list.size()>0){
             //process still running
             stop(process);      //Try to stop it
-            if(getPIDs(process).size()>0){
-                //Didn't work
-                publishProgress(stillRunning);
+            List<Integer> remaining = getPIDs(process);
+            if(remaining != null && !remaining.isEmpty()){
+                // Report only once until the process has actually stopped.
+                if(warnedProcesses.add(process)){
+                    publishProgress(stillRunning);
+                }
+            }else{
+                warnedProcesses.remove(process);
             }
+        }else if(!running && list.size()==0){
+            warnedProcesses.remove(process);
         }
     }
     @Override
