@@ -558,7 +558,7 @@ public class MainActivity extends AppCompatActivity{
 
                 //Extract tools
                 boolean install = true;
-                if(bin.list().length==21 && lib.list().length==2 && info!=null){
+                if(bin.list().length==21 && lib.list().length==3 && info!=null){
                     if(info.versionCode==pref.getInt("tools_version", 0)){
                         if(debug) Log.d("HIJACKER/SetupTask", "Tools already installed");
                         install = false;
@@ -589,6 +589,7 @@ public class MainActivity extends AppCompatActivity{
                     extract("wpaclean", tools_location, true);
                     extract("libfakeioctl.so", lib_location, true);
                     extract("libnexmon.so", lib_location, true);
+                    extract("libc++_shared.so", lib_location, true);
 
                     runOne("cd " + path + "/bin; mv mdk3 mdk3bf; cp mdk3bf mdk3dos");
 
@@ -645,7 +646,7 @@ public class MainActivity extends AppCompatActivity{
 
                 airodump_dir = path + "/bin/airodump-ng";
                 aireplay_dir = path + "/bin/aireplay-ng";
-                aircrack_dir = path + "/bin/aircrack-ng";
+                aircrack_dir = "LD_LIBRARY_PATH=" + path + "/lib " + path + "/bin/aircrack-ng";
                 mdk3bf_dir = path + "/bin/mdk3bf";
                 mdk3dos_dir = path + "/bin/mdk3dos";
                 reaver_dir = path + "/bin/reaver";
